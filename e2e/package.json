@@ -1,0 +1,25 @@
+{
+  "name": "notulen-ai-e2e",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Browser smoke test. Kept out of the frontend package so Playwright never ships into the dev container.",
+  "scripts": {
+    "setup": "npm install && npx playwright install chromium",
+    "smoke": "node smoke.mjs",
+    "multichunk": "node multichunk.mjs",
+    "probe-chunks": "node probe-chunks.mjs",
+    "probe-gap": "node probe-gap.mjs",
+    "pdf": "node pdf.mjs",
+    "resummarize": "node resummarize.mjs",
+    "finish": "node finish.mjs",
+    "pause": "node pause.mjs",
+    "combine": "node combine.mjs",
+    "url": "node url.mjs",
+    "browse": "node browse-while-recording.mjs",
+    "stuck": "node stuck-processing.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  }
+}

@@ -1,0 +1,109 @@
+# notulen-ai — production-shaped stack.
+#
+# Only frontend and backend publish ports. Postgres and the STT service are
+# reachable on the internal network only (PRD §31).
+
+name: notulen-ai
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-meeting_notes}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-meeting_notes}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-shot: applies migrations, then exits. The backend waits for it to
+  # succeed, so the API never starts against an unmigrated schema.
+  migrate:
+    image: migrate/migrate:v4.18.1
+    volumes:
+      - ./migrations:/migrations:ro
+    command: ["-path", "/migrations", "-database", "${DATABASE_URL}", "up"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
+  stt:
+    build:
+      context: ./stt
+    image: notulen-ai-stt:latest
+    restart: unless-stopped
+    environment:
+      WHISPER_MODEL: ${WHISPER_MODEL:-small}
+      WHISPER_DEVICE: ${WHISPER_DEVICE:-cuda}
+      WHISPER_COMPUTE_TYPE: ${WHISPER_COMPUTE_TYPE:-int8}
+      WHISPER_LANGUAGE: ${WHISPER_LANGUAGE:-auto}
+      WHISPER_INITIAL_PROMPT: ${WHISPER_INITIAL_PROMPT:-}
+    volumes:
+      - whisper_models:/models
+    # GPU is reserved for the STT container only. Remove this block (or set
+    # WHISPER_DEVICE=cpu) on a machine without an NVIDIA runtime.
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  backend:
+    build:
+      context: ./backend
+      target: runtime
+    # Tagged per build target: the dev override builds a different image under
+    # a different tag. Without this they share one tag, and whichever was built
+    # last silently wins — a prod image started with dev port mappings.
+    image: notulen-ai-backend:prod
+    restart: unless-stopped
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      PORT: 8080
+      DATABASE_URL: ${DATABASE_URL}
+      STT_URL: ${STT_URL:-http://stt:8000}
+      STT_MAX_RETRIES: ${STT_MAX_RETRIES:-2}
+      STT_TIMEOUT_SECONDS: ${STT_TIMEOUT_SECONDS:-600}
+      AUDIO_CHUNK_SECONDS: ${AUDIO_CHUNK_SECONDS:-90}
+      AUDIO_TEMP_DIR: /tmp/meeting-chunks
+      KEEP_AUDIO: ${KEEP_AUDIO:-false}
+      LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_FALLBACK_MODELS: ${LLM_FALLBACK_MODELS:-}
+      LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-3}
+      LLM_MAX_OUTPUT_TOKENS: ${LLM_MAX_OUTPUT_TOKENS:-32768}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      SSE_HEARTBEAT_SECONDS: ${SSE_HEARTBEAT_SECONDS:-15}
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-8180}:8080"
+    volumes:
+      - audio_tmp:/tmp/meeting-chunks
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  frontend:
+    build:
+      context: ./frontend
+      target: runtime
+    image: notulen-ai-frontend:prod
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-5273}:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  whisper_models:
+  audio_tmp:

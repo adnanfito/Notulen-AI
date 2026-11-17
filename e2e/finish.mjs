@@ -1,0 +1,21 @@
+import { chromium } from 'playwright'
+const id = process.argv[2], OUT = process.argv[3] ?? 'shots'
+const b = await chromium.launch()
+const p = await b.newPage({ viewport: { width: 1280, height: 900 } })
+const errs = []
+p.on('console', m => m.type() === 'error' && errs.push(m.text()))
+p.on('pageerror', e => errs.push('pageerror: ' + e.message))
+await p.goto(`http://localhost:5273/meetings/${id}`, { waitUntil: 'domcontentloaded' })
+await p.waitForSelector('article')
+await p.screenshot({ path: `${OUT}/stuck-before.png`, fullPage: true })
+const btn = p.getByRole('button', { name: /selesaikan & buat notulen/i })
+console.log('tombol muncul:', await btn.isVisible().catch(() => false))
+await btn.click()
+console.log('diklik, menunggu notulen…')
+const ok = await p.waitForSelector('text=/Ringkasan/', { timeout: 300000 }).then(() => true).catch(() => false)
+console.log('notulen muncul:', ok)
+await p.waitForTimeout(1500)
+await p.screenshot({ path: `${OUT}/stuck-after.png`, fullPage: true })
+console.log('console errors:', errs.length ? errs.join(' ;; ') : 'none')
+await b.close()
+process.exit(ok ? 0 : 1)

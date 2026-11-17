@@ -1,0 +1,40 @@
+# Development overrides — applied automatically by `docker compose up`.
+#
+# Adds hot reload for backend and frontend, and exposes postgres/stt on
+# loopback for debugging. Use `docker compose -f docker-compose.yml up` to run
+# the production shape instead.
+
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-55432}:5432"
+
+  stt:
+    ports:
+      - "127.0.0.1:${STT_PORT:-8200}:8000"
+
+  backend:
+    build:
+      target: dev
+    image: notulen-ai-backend:dev
+    environment:
+      APP_ENV: development
+    volumes:
+      - ./backend:/src
+      - backend_tmp:/src/tmp
+
+  frontend:
+    build:
+      target: dev
+    image: notulen-ai-frontend:dev
+    environment:
+      BACKEND_ORIGIN: http://backend:8080
+      VITE_AUDIO_CHUNK_SECONDS: ${VITE_AUDIO_CHUNK_SECONDS:-90}
+    ports: !override
+      - "127.0.0.1:${FRONTEND_PORT:-5273}:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+volumes:
+  backend_tmp:

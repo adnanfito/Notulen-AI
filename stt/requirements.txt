@@ -1,0 +1,9 @@
+# faster-whisper 1.1.x imports `requests` transitively via huggingface_hub 0.x.
+# huggingface_hub 1.0 dropped requests for httpx, which breaks that import, so
+# huggingface_hub is pinned explicitly alongside a faster-whisper release that
+# works with it.
+faster-whisper==1.2.1
+huggingface_hub==1.31.0
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20

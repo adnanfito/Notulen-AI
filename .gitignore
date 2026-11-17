@@ -1,0 +1,48 @@
+# Secrets
+.env
+.env.local
+*.env.local
+
+# Node
+node_modules/
+dist/
+.vite/
+*.log
+npm-debug.log*
+
+# Go
+backend/bin/
+backend/tmp/
+*.exe
+*.test
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Runtime artifacts
+tmp/
+/data/
+meeting-chunks/
+models/
+
+# Editors / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Downloaded test media (see testdata/README.md)
+testdata/*.wav
+testdata/*.flac
+testdata/*.mp3
+testdata/*speech*
+e2e/shots/
+
+# Python test cache
+.pytest_cache/
+
+# Database dumps
+backups/

@@ -1,0 +1,123 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-white text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100;
+  }
+
+  /* Status must never be conveyed by colour alone (PRD §35), and focus must
+     always be visible for keyboard users. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-sky-500 ring-offset-2 ring-offset-white dark:ring-offset-slate-950;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Print / "Save as PDF"
+   ---------------------------------------------------------------------------
+   The browser's own print pipeline produces the PDF: selectable text, correct
+   Indonesian characters, and the reader's paper size — none of which a
+   bundled PDF library gives without real effort. This stylesheet turns the
+   meeting page into the document.
+--------------------------------------------------------------------------- */
+
+@media print {
+  @page {
+    margin: 18mm 16mm;
+  }
+
+  /* Print on white regardless of the viewer's theme. */
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* App chrome is not part of the document. */
+  .no-print,
+  [data-print-hide] {
+    display: none !important;
+  }
+
+  /* Tailwind's muted greys are chosen for screens; on paper they print faint,
+     so body copy drops back to near-black. */
+  p,
+  li,
+  span,
+  dt,
+  dd,
+  label {
+    color: #1a1a1a !important;
+  }
+
+  /* Blocks that only make sense on paper. */
+  .print-only {
+    display: block !important;
+  }
+
+  /* Collapsed topics are kept in the DOM with v-show; paper shows them all. */
+  .print-expand {
+    display: block !important;
+  }
+
+  /* An accordion toggle is just a heading once printed. */
+  .print-as-heading {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    font-weight: 600;
+  }
+
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  /* Borders and fills turn to noise in print; keep only what separates. */
+  section,
+  article,
+  ul,
+  li,
+  div {
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .rounded-md {
+    border-radius: 0 !important;
+  }
+
+  /* A heading stranded at the foot of a page is the classic print defect. */
+  h1,
+  h2,
+  h3 {
+    break-after: avoid;
+    page-break-after: avoid;
+    color: #000 !important;
+  }
+
+  li,
+  p,
+  tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* The transcript is long; it starts its own page. */
+  .print-page-break {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  /* Checked state must survive: an unticked printout misreports the meeting. */
+  input[type='checkbox'] {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  a {
+    text-decoration: none;
+    color: #000 !important;
+  }
+}

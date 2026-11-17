@@ -36,25 +36,21 @@ services:
   stt:
     build:
       context: ./stt
-    image: notulen-ai-stt:latest
+    image: notulen-ai-stt:cpu
     restart: unless-stopped
     environment:
+      # CPU-only branch: no NVIDIA runtime is reserved, so this runs on any
+      # laptop (Intel/AMD iGPU machines included — the iGPU itself is unused,
+      # CTranslate2 has no backend for it).
       WHISPER_MODEL: ${WHISPER_MODEL:-small}
-      WHISPER_DEVICE: ${WHISPER_DEVICE:-cuda}
+      WHISPER_DEVICE: ${WHISPER_DEVICE:-cpu}
       WHISPER_COMPUTE_TYPE: ${WHISPER_COMPUTE_TYPE:-int8}
+      WHISPER_CPU_THREADS: ${WHISPER_CPU_THREADS:-8}
+      WHISPER_BEAM_SIZE: ${WHISPER_BEAM_SIZE:-5}
       WHISPER_LANGUAGE: ${WHISPER_LANGUAGE:-auto}
       WHISPER_INITIAL_PROMPT: ${WHISPER_INITIAL_PROMPT:-}
     volumes:
       - whisper_models:/models
-    # GPU is reserved for the STT container only. Remove this block (or set
-    # WHISPER_DEVICE=cpu) on a machine without an NVIDIA runtime.
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
 
   backend:
     build:

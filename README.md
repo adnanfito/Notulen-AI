@@ -16,7 +16,7 @@ is sent to the LLM provider for summarization.
 ## Architecture
 
 ```text
-Vue 3 (browser)  ──HTTP/SSE──>  Go API  ──HTTP──>  Python STT (faster-whisper, CUDA)
+Vue 3 (browser)  ──HTTP/SSE──>  Go API  ──HTTP──>  Python STT (faster-whisper, CPU)
                                    │
                                    ├──> PostgreSQL   (meetings, transcripts)
                                    └──> LLM provider (transcript text only)
@@ -32,21 +32,25 @@ service are never exposed publicly.
 | Requirement | Notes |
 |---|---|
 | Docker Desktop / Docker Engine | Compose v2+ |
-| NVIDIA GPU (optional) | For CUDA transcription. CPU fallback works without it. |
-| NVIDIA driver + Container Toolkit | Required only for GPU mode |
+| 8 GB+ RAM | Whisper runs on the CPU; `small` needs ~1 GB, `medium` ~2 GB |
 
-### GPU on Windows
+### CPU-only branch
 
-GPU passthrough requires Docker Desktop running on the **WSL2 backend** (not
-Hyper-V). Verify the container runtime can see the GPU:
+This is the **`cpu-only`** branch: no NVIDIA GPU, driver, or Container Toolkit
+is needed. It targets laptops with only an integrated GPU (e.g. Intel Evo).
+The iGPU is not used — CTranslate2, the engine under faster-whisper, only
+supports CUDA and CPU — so transcription runs on the CPU.
 
-```bash
-docker run --rm --gpus all nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi
-```
+Differences from `main`:
 
-If that fails, set `WHISPER_DEVICE=cpu` in `.env` and remove the `deploy` block
-from the `stt` service in `docker-compose.yml`. Everything still works, just
-slower.
+- The STT image is built on `python:3.10-slim` instead of the CUDA/cuDNN image.
+- `docker-compose.yml` reserves no GPU, and `WHISPER_DEVICE` defaults to `cpu`.
+- `WHISPER_CPU_THREADS` and `WHISPER_BEAM_SIZE` are passed through to the
+  container so you can tune speed.
+
+On a thin laptop, sustained transcription can thermally throttle the CPU. If
+chunks start to queue up during long meetings, drop `WHISPER_BEAM_SIZE` to `1`
+or the model to `base`. For an NVIDIA machine, use the `main` branch.
 
 ---
 
@@ -104,16 +108,19 @@ which fails to connect with nothing obviously wrong in `docker compose ps`.
 All configuration lives in `.env` — see `.env.example` for the full list.
 Never commit `.env`.
 
-The Whisper model must stay within a **1.5 GB VRAM** budget. `small + int8` is
-the default; drop to `base` if your GPU measures over budget.
+On this branch Whisper runs on the CPU. `small + int8` is the default; each
+90 s chunk has to finish in well under 90 s or chunks back up.
 
 ```env
 WHISPER_MODEL=small
-WHISPER_DEVICE=cuda
+WHISPER_DEVICE=cpu
 WHISPER_COMPUTE_TYPE=int8
+WHISPER_CPU_THREADS=8   # roughly your physical core count
+WHISPER_BEAM_SIZE=5     # 1 is ~2x faster, slightly less accurate
 ```
 
-Measured VRAM usage is recorded in [stt/README.md](stt/README.md).
+Check `GET /health` on the STT service: `device` should read `cpu`. GPU
+measurements in [stt/README.md](stt/README.md) apply to the `main` branch.
 
 ---
 
